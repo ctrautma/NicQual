@@ -1,4 +1,4 @@
-#Platform QE Nic Qualification Script
+# Platform QE Nic Qualification Script
 
 Requires two servers, one for running the tests, and one for running the T-Rex
 Traffic Generator.
@@ -16,6 +16,9 @@ After downloading, Run configure and build
     ./b configure   (run only once)
 
     ./b build
+
+NOTE: T-Rex server may need gcc, zlib-devel, and dpdk rpms installed to build
+correctly.
 
 Next step is to create a minimum configuration file. It can be created by script ``dpdk_setup_ports.py``.
 The script with parameter ``-i`` will run in interactive mode and it will create file ``/etc/trex_cfg.yaml``.
@@ -35,7 +38,7 @@ It is neccesary for proper connection between Trex server and VSPERF.
 
     ./t-rex-64 -i
 
-**NOTE:** One will need to set up ssh login to not use passwords between the server
+NOTE: One will need to set up ssh login to not use passwords between the server
 running Trex and the device under test (running the VSPERF test
 infrastructure). This is because VSPERF on one server uses 'ssh' to
 configure and run Trex upon the other server.
@@ -51,14 +54,25 @@ script. It runs various checks to verify that the configuration is valid.
 
 The following steps must be completed for the script to execute correctly.
 
-1. Iommu mode must be enabled in grub/cmdline
-2. 1G hugepages must be enabled and enough pages available for DPDK and a Guest
-to run. Recommend at least 8 Hugepages of 1G in size.
-3. CPU-partitioning tuned-adm profile must be active
-4. Openvswitch, dpdk, dpdk-tools, and qemu-kvm-rhev rpms must be installed locally
-5. The current user must be root
-6. The OS must be RHEL 7.2 or above.
-7. The server must have an internet connection to pull files from public servers
-8. The Perf-Verify.conf file must be setup. It is a simple bash text file that
-requires NIC, CPU assignment and T-Rex server info.
+    1. Iommu mode must be enabled in proc/cmdline
+
+    2. 1G hugepages must be enabled and enough pages available for DPDK and a Guest
+
+    to run. Recommend at least 8 Hugepages of 1G in size.
+
+    3. CPU-partitioning tuned-adm profile must be active,
+
+    tuned-profiles-cpu-partitioning.noarch package may need to be installed.
+
+    4. Openvswitch, dpdk, dpdk-tools, and qemu-kvm-rhev rpms must be installed locally
+
+    5. The current user must be root
+
+    6. The OS must be RHEL 7.2 or above.
+
+    7. The server must have an internet connection to pull files from public servers
+
+    8. The Perf-Verify.conf file must be setup. It is a simple bash text file that
+
+    requires NIC, CPU assignment and T-Rex server info.
 

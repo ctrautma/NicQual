@@ -141,6 +141,8 @@ checks() {
          fail "Github connection fail" "!!! Cannot connect to www.github.com, please verify internet connection !!!"
      fi
 
+     cd ~
+
 }
 
 download_conf_files() {
@@ -283,10 +285,10 @@ TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':5, 'TRAFF
 TRAFFICGEN_TREX_HOST_IP_ADDR = '10.19.15.85'
 TRAFFICGEN_TREX_USER = 'root'
 # TRAFFICGEN_TREX_BASE_DIR is the place, where 't-rex-64' file is stored on Trex Server
-TRAFFICGEN_TREX_BASE_DIR = '/root/trex-core/scripts/'
-TRAFFICGEN_TREX_PORT1 = 'a0:36:9f:65:ee:7a'
-TRAFFICGEN_TREX_PORT2 = 'a0:36:9f:65:ee:78'
-TRAFFICGEN_TREX_LINE_SPEED_GBPS = '10'
+TRAFFICGEN_TREX_BASE_DIR = '$TRAFFICGEN_TREX_BASE_DIR'
+TRAFFICGEN_TREX_PORT1 = '$TRAFFICGEN_TREX_PORT1'
+TRAFFICGEN_TREX_PORT2 = '$TRAFFICGEN_TREX_PORT2'
+TRAFFICGEN_TREX_LINE_SPEED_GBPS = '$TRAFFICGEN_TREX_LINE_SPEED_GBPS'
 TRAFFICGEN = 'Trex'
 
 EOT
