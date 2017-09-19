@@ -7,7 +7,7 @@ T-Rex generator should be setup as per the following instructions
 
 Download the Trex latest release from here:
 
-     wget --no-cache http://trex-tgn.cisco.com/trex/release/latest
+     git clone https://github.com/cisco-system-traffic-generator/trex-core
 
 After downloading, Run configure and build
 
