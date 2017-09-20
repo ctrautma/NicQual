@@ -279,10 +279,10 @@ GUEST_TESTPMD_PARAMS = ['-l 0,1,2 -n 4 --socket-mem 512 -- '
                         '--burst=64 -i --txqflags=0xf00 '
                         '--disable-hw-vlan --nb-cores=2, --txq=1 --rxq=1 --rxd=512 --txd=512']
 
-TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':5, 'TRAFFICGEN_LOSSRATE':0}
+TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':60, 'TRAFFICGEN_LOSSRATE':0}
 
 # Update your Trex trafficgen info below
-TRAFFICGEN_TREX_HOST_IP_ADDR = '10.19.15.85'
+TRAFFICGEN_TREX_HOST_IP_ADDR = '$TRAFFICGEN_TREX_HOST_IP_ADDR'
 TRAFFICGEN_TREX_USER = 'root'
 # TRAFFICGEN_TREX_BASE_DIR is the place, where 't-rex-64' file is stored on Trex Server
 TRAFFICGEN_TREX_BASE_DIR = '$TRAFFICGEN_TREX_BASE_DIR'
@@ -304,9 +304,9 @@ download_VNF_image() {
         echo "*********************************************************************"
         echo ""
 
-        git clone https://github.com/ctrautma/VSPerfBeakerInstall.git >>VNFCreate.log
+        git clone https://github.com/ctrautma/VSPerfBeakerInstall.git &>VNFCreate.log
         chmod +x VSPerfBeakerInstall/vmcreate.sh
-        yum install -y virt-install libvirt
+        yum install -y virt-install libvirt &>>VNFCreate.log
         systemctl start libvirtd
 
         enforce_status=`getenforce`
@@ -396,11 +396,8 @@ shutdown
 
 KS_CFG
 
-        echo creating new master image
-        qemu-img create -f qcow2 $image_path/$master_image 100G
-        echo undefining master xml
-        virsh list --all | grep master && virsh undefine master
-        echo calling virt-install
+        qemu-img create -f qcow2 $image_path/$master_image 100G &>>VNFCreate.log
+        virsh list --all | grep master && virsh undefine master &>>VNFCreate.log
 
         if [ $DEBUG == "yes" ]; then
         virt-install --name=$vm\
@@ -429,7 +426,7 @@ KS_CFG
                  --location=$location\
                  --noreboot\
                  --serial pty\
-                 --serial file,path=/tmp/$vm.console &> VNFCreate.log
+                 --serial file,path=/tmp/$vm.console &>> VNFCreate.log
         fi
 
         rm $dist-vm.ks
@@ -459,11 +456,12 @@ git_clone_vsperf() {
     then
         echo "*** Cloning OPNFV VSPerf project ***"
 
-        yum install -y git >> /dev/null
-        git clone https://gerrit.opnfv.org/gerrit/vswitchperf >> /dev/null
+        yum install -y git &>>vsperf_clone.log
+        git clone https://gerrit.opnfv.org/gerrit/vswitchperf &>>vsperf_clone.log
     fi
     cd vswitchperf
-    git checkout -f f655cdd4db0fed301339be0ae8a9063807095ba5 >> /dev/null # last known good commit
+    git checkout -f 980cd2834cb2c23c13cf40b6f58c1de0b28b70b0 &>>vsperf_clone.log # Euphrates release
+    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/41/42241/4
 
 }
 
@@ -864,7 +862,7 @@ spin[1]="\\"
 spin[2]="|"
 spin[3]="/"
 
-echo -n "[copying] ${spin[0]}"
+echo -n "${spin[0]}"
 while kill -0 $pid 2>/dev/null
 do
   for i in "${spin[@]}"
@@ -893,7 +891,7 @@ vsperf_make() {
             cp -R systems/rhel/7.2 systems/rhel/$VERSION_ID
         fi
         cd systems
-        ./build_base_machine.sh > ~//vsperf_install.log &
+        ./build_base_machine.sh > ~//vsperf_install.log &>vsperf_install.log &
         spinner
         cd ..
 
