@@ -117,7 +117,7 @@ checks() {
     echo "*** Checking for installed RPMS ***"
     sleep 1
 
-    if ! [ `rpm -qa | grep openvswitch` ]
+    if ! [[ `rpm -qa | grep ^openvswitch-[0-9]` ]]
     then
         fail "Openvswitch rpm" "Please install Openvswitch rpm"
     fi
@@ -527,7 +527,7 @@ GUEST_TESTPMD_PARAMS = ['-l 0,1,2 -n 4 --socket-mem 512 -- '
                         '--burst=64 -i --txqflags=0xf00 '
                         '--disable-hw-vlan --nb-cores=2, --txq=1 --rxq=1 --rxd=512 --txd=512']
 
-TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':60, 'TRAFFICGEN_LOSSRATE':0}
+TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':30, 'TRAFFICGEN_LOSSRATE':0}
 
 # Update your Trex trafficgen info below
 TRAFFICGEN_TREX_HOST_IP_ADDR = '$TRAFFICGEN_TREX_HOST_IP_ADDR'
@@ -700,6 +700,13 @@ fail() {
 }
 
 generate_sriov_conf() {
+
+    NIC1_VF_PCI_ADDR=`ethtool -i $NIC1_VF | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
+    NIC2_VF_PCI_ADDR=`ethtool -i $NIC2_VF | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
+    NIC1_VF_MAC=`cat /sys/class/net/$NIC1_VF/address`
+    NIC2_VF_MAC=`cat /sys/class/net/$NIC2_VF/address`
+
+
 cat <<EOT >>/root/vswitchperf/sriov.conf
 
 TRAFFIC = {
@@ -734,10 +741,15 @@ TRAFFIC = {
         'cfi': 0,
     },
 }
-WHITELIST_NICS = ['$NIC1_VF', '$NIC2_VF']
+WHITELIST_NICS = ['$NIC1_VF_PCI_ADDR', '$NIC2_VF_PCI_ADDR']
+
+PIDSTAT_MONITOR = ['ovs-vswitchd', 'ovsdb-server', 'qemu-system-x86_64', 'vpp', 'testpmd', 'qemu-kvm']
+TRAFFICGEN_TREX_PROMISCUOUS=True
+
 EOT
 
 }
+
 git_clone_vsperf() {
     if ! [ -d "vswitchperf" ]
     then
@@ -916,6 +928,9 @@ run_sriov_tests() {
     echo "************************************************"
     echo ""
 
+    # cat /sys/bus/pci/devices/0000\:04\:10.5/net/p6p2_2/address
+    # ce:09:65:9e:0b:1d
+
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
 python ./vsperf pvp_tput --conf-file=/root/vswitchperf/sriov.conf --vswitch=none --vnf=QemuPciPassthrough &> vsperf_pvp_sriov.log &
@@ -1001,7 +1016,7 @@ vsperf_make
 customize_VSPerf_code
 download_VNF_image
 download_conf_files
-generate_sriov_conf
-run_sriov_tests
+#generate_sriov_conf
+#run_sriov_tests
 run_ovs_dpdk_tests
 run_ovs_kernel_tests
