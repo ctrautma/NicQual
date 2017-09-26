@@ -28,7 +28,7 @@
 # Detect OS name and version from systemd based os-release file
 . /etc/os-release
 
-checks() {
+OS_checks() {
 
     echo "*** Running System Checks ***"
     sleep 1
@@ -50,6 +50,10 @@ checks() {
     then
         fail "OS Check" "OS Much be RHEL"
     fi
+
+}
+
+conf_checks() {
 
     # get the cat proc cmdline for parsing the next few checks
     PROCESS_CMD_LINE=`cat /proc/cmdline`
@@ -76,6 +80,10 @@ checks() {
         fail "Tuned Config" "Must set cores to isolate in tuned-adm profile"
     fi
 
+}
+
+hugepage_checks() {
+
     echo "*** Checking Hugepage Config ***"
     sleep 1
 
@@ -83,6 +91,10 @@ checks() {
     then
         fail "Hugepage Check" "Please enable 1G Hugepages"
     fi
+
+}
+
+config_file_checks() {
 
     echo "*** Checking Config File ***"
     sleep 1
@@ -108,11 +120,19 @@ checks() {
         fail "Config File" "Cannot locate Perf-Verify.conf"
     fi
 
+}
+
+nic_card_check() {
+
     echo "*** Checking for NIC cards ***"
     if [[ ! `ip a | grep $NIC1` ]] ||  [[ ! `ip a | grep $NIC2` ]]
     then
         fail "NIC Check" "NIC $NIC1 or NIC $NIC2 cannot be seen by kernel"
     fi
+
+}
+
+rpm_check() {
 
     echo "*** Checking for installed RPMS ***"
     sleep 1
@@ -134,14 +154,9 @@ checks() {
         fail "QEMU-KVM-RHEV rpms" "Please install qemu-kvm-rhev rpm"
     fi
 
-     echo "*** Checking connection to Centos image location *** "
+}
 
-     if ping -c 1 mirror.centos.org &> /dev/null
-     then
-         echo "*** Connection to server succesful ***"
-     else
-         fail "Centos Server fail" "!!! Cannot connect to mirror.centos.org, please verify internet connection !!!"
-     fi
+network_connection_check() {
 
      echo "*** Checking github connection ***"
      if ping -c 1 www.github.com &> /dev/null
@@ -151,13 +166,15 @@ checks() {
          fail "Github connection fail" "!!! Cannot connect to www.github.com, please verify internet connection !!!"
      fi
 
+}
+
+ovs_running_check() {
+
      echo "*** Checking for running instance of Openvswitch ***"
      if [ `pgrep ovs-vswitchd` ] || [ `pgrep ovsdb-server` ]
      then
          fail "Openvswitch running" "It appears Openvswitch may be running, please stop all services and processes"
      fi
-
-
 
      cd ~
 
@@ -527,7 +544,7 @@ GUEST_TESTPMD_PARAMS = ['-l 0,1,2 -n 4 --socket-mem 512 -- '
                         '--burst=64 -i --txqflags=0xf00 '
                         '--disable-hw-vlan --nb-cores=2, --txq=1 --rxq=1 --rxd=512 --txd=512']
 
-TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':30, 'TRAFFICGEN_LOSSRATE':0}
+TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':15, 'TRAFFICGEN_LOSSRATE':0}
 
 # Update your Trex trafficgen info below
 TRAFFICGEN_TREX_HOST_IP_ADDR = '$TRAFFICGEN_TREX_HOST_IP_ADDR'
@@ -538,6 +555,7 @@ TRAFFICGEN_TREX_PORT1 = '$TRAFFICGEN_TREX_PORT1'
 TRAFFICGEN_TREX_PORT2 = '$TRAFFICGEN_TREX_PORT2'
 TRAFFICGEN_TREX_LINE_SPEED_GBPS = '$TRAFFICGEN_TREX_LINE_SPEED_GBPS'
 TRAFFICGEN = 'Trex'
+TRAFFICGEN_TREX_LATENCY_PPS = 0
 
 EOT
 
@@ -699,57 +717,6 @@ fail() {
 
 }
 
-generate_sriov_conf() {
-
-    NIC1_VF_PCI_ADDR=`ethtool -i $NIC1_VF | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
-    NIC2_VF_PCI_ADDR=`ethtool -i $NIC2_VF | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
-    NIC1_VF_MAC=`cat /sys/class/net/$NIC1_VF/address`
-    NIC2_VF_MAC=`cat /sys/class/net/$NIC2_VF/address`
-
-
-cat <<EOT >>/root/vswitchperf/sriov.conf
-
-TRAFFIC = {
-    'traffic_type' : 'rfc2544_throughput',
-    'frame_rate' : 100,
-    'bidir' : 'True',  # will be passed as string in title format to tgen
-    'multistream' : 1024,
-    'stream_type' : 'L3',
-    'pre_installed_flows' : 'No',           # used by vswitch implementation
-    'flow_type' : 'port',                   # used by vswitch implementation
-
-    'l2': {
-        'framesize': 64,
-        'srcmac': '$NIC1_VF_MAC',
-        'dstmac': '$NIC2_VF_MAC',
-    },
-    'l3': {
-        'enabled': True,
-        'proto': 'udp',
-        'srcip': '1.1.1.1',
-        'dstip': '90.90.90.90',
-    },
-    'l4': {
-        'enabled': True,
-        'srcport': 3000,
-        'dstport': 3001,
-    },
-    'vlan': {
-        'enabled': False,
-        'id': 0,
-        'priority': 0,
-        'cfi': 0,
-    },
-}
-WHITELIST_NICS = ['$NIC1_VF_PCI_ADDR', '$NIC2_VF_PCI_ADDR']
-
-PIDSTAT_MONITOR = ['ovs-vswitchd', 'ovsdb-server', 'qemu-system-x86_64', 'vpp', 'testpmd', 'qemu-kvm']
-TRAFFICGEN_TREX_PROMISCUOUS=True
-
-EOT
-
-}
-
 git_clone_vsperf() {
     if ! [ -d "vswitchperf" ]
     then
@@ -759,42 +726,12 @@ git_clone_vsperf() {
         git clone https://gerrit.opnfv.org/gerrit/vswitchperf &>>vsperf_clone.log
     fi
     cd vswitchperf
-    git checkout -f 980cd2834cb2c23c13cf40b6f58c1de0b28b70b0 &>>vsperf_clone.log # Euphrates release
-    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/41/42241/4
+    git checkout -f I8148deba9039c3a0feb6394d6671aa10c5afaf0a&>>vsperf_clone.log # Euphrates release
+    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/61/43061/1 # T-Rex SRIOV patch
 
 }
 
 run_ovs_dpdk_tests() {
-
-    echo ""
-    echo "***************************************************************"
-    echo "*** Running 64/1500 Bytes 2PMD OVS/DPDK VSPerf PHY2PHY TEST ***"
-    echo "***************************************************************"
-    echo ""
-
-scl enable python33 - << \EOF
-source /root/vsperfenv/bin/activate
-python ./vsperf phy2phy_tput &> vsperf_phy2phy_2pmd.log &
-EOF
-
-    sleep 2
-    vsperf_pid=`pgrep -f vsperf`
-
-    spinner $vsperf_pid
-
-    if [[ `grep "Overall test report written to" vsperf_phy2phy_2pmd.log` ]]
-    then
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_phy2phy_2pmd.log | awk '{print $11}' )
-
-        echo ""
-        echo "############################################################"
-        echo "# 64   Byte 2PMD OVS/DPDK Phy2Phy test result: ${array[0]} #"
-        echo "# 1500 Byte 2PMD OVS/DPDK Phy2phy test result: ${array[1]} #"
-        echo "############################################################"
-        echo ""
-    else
-        echo "!!! VSPERF Test Failed !!!!"
-    fi
 
     echo ""
     echo "***********************************************************"
@@ -814,16 +751,84 @@ EOF
 
     if [[ `grep "Overall test report written to" vsperf_pvp_2pmd.log` ]]
     then
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_2pmd.log | awk '{print $11}' )
 
         echo ""
         echo "########################################################"
-        echo "# 64   Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #"
-        echo "# 1500 Byte 2PMD OVS/DPDK PVP test result: ${array[1]} #"
+
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_2pmd.log | awk '{print $11}' )
+        if [ "${array[0]%%.*}" -gt 3400000 ]
+        then
+            echo "# 64   Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #"
+        else
+            echo "# 64 Bytes 2 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
+        fi
+
+        if [ "${array[1]%%.*}" -gt 1500000 ]
+        then
+            echo "# 1500 Byte 2PMD OVS/DPDK PVP test result: ${array[1]} #"
+        else
+            echo "# 1500 Bytes 2 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
+        fi
+
         echo "########################################################"
         echo ""
+
+        if [ "${array[0]%%.*}" -lt 3400000 ] || [ "${array[1]%%.*}" -lt 1500000 ]
+        then
+            fail "64/1500 Byte 2PMD PVP" "Failed to achieve required pps on tests"
+        fi
     else
         echo "!!! VSPERF Test Failed !!!!"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_2pmd.log"
+    fi
+
+    echo ""
+    echo "***********************************************************"
+    echo "*** Running 64/1500 Bytes 2PMD OVS/DPDK PVP VSPerf TEST ***"
+    echo "***********************************************************"
+    echo ""
+
+scl enable python33 - << \EOF
+source /root/vsperfenv/bin/activate
+python ./vsperf pvp_tput --test-params="VSWITCH_PMD_CPU_MASK=$PMD4MASK" &> vsperf_pvp_4pmd.log &
+EOF
+
+    sleep 2
+    vsperf_pid=`pgrep -f vsperf`
+
+    spinner $vsperf_pid
+
+    if [[ `grep "Overall test report written to" vsperf_pvp_4pmd.log` ]]
+    then
+
+        echo ""
+        echo "########################################################"
+
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_4pmd.log | awk '{print $11}' )
+        if [ "${array[0]%%.*}" -gt 3400000 ]
+        then
+            echo "# 64   Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #"
+        else
+            echo "# 64 Bytes 2 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
+        fi
+
+        if [ "${array[1]%%.*}" -gt 1500000 ]
+        then
+            echo "# 1500 Byte 2PMD OVS/DPDK PVP test result: ${array[1]} #"
+        else
+            echo "# 1500 Bytes 2 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
+        fi
+
+        echo "########################################################"
+        echo ""
+
+        if [ "${array[0]%%.*}" -lt 3400000 ] || [ "${array[1]%%.*}" -lt 1500000 ]
+        then
+            fail "64/1500 Byte 2PMD PVP" "Failed to achieve required pps on tests"
+        fi
+    else
+        echo "!!! VSPERF Test Failed !!!!"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_4pmd.log"
     fi
 
     echo ""
@@ -844,46 +849,35 @@ EOF
 
     if [[ `grep "Overall test report written to" vsperf_phy2phy_2pmd_jumbo.log` ]]
     then
+
+        echo ""
+        echo "########################################################"
+
         mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_phy2phy_2pmd_jumbo.log | awk '{print $11}' )
+        if [ "${array[0]%%.*}" -gt 1100000 ]
+        then
+            echo "# 2000 Byte 2PMD OVS/DPDK Phy2Phy test result: ${array[0]} #"
+        else
+            echo "# 2000 Bytes 2 PMD OVS/DPDK PVP failed to reach required 1.1 Mpps got ${array[0]} #"
+        fi
 
-        echo ""
-        echo "############################################################"
-        echo "# 2000 Byte 2PMD OVS/DPDK Phy2Phy test result: ${array[0]} #"
-        echo "# 9000 Byte 2PMD OVS/DPDK Phy2Phy test result: ${array[1]} #"
-        echo "############################################################"
-        echo ""
-    else
-        echo "!!! VSPERF Test Failed !!!!"
-    fi
+        if [ "${array[1]%%.*}" -gt 250000 ]
+        then
+            echo "# 9000 Byte 2PMD OVS/DPDK PVP test result: ${array[1]} #"
+        else
+            echo "# 9000 Bytes 2 PMD OVS/DPDK PVP failed to reach required 250 Kpps got ${array[1]} #"
+        fi
 
-    echo ""
-    echo "*************************************************************"
-    echo "*** Running 2000/9000 Bytes 2PMD PVP OVS/DPDK VSPerf TEST ***"
-    echo "*************************************************************"
-    echo ""
-
-scl enable python33 - << \EOF
-source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &> vsperf_pvp_2pmd_jumbo.log &
-EOF
-
-    sleep 2
-    vsperf_pid=`pgrep -f vsperf`
-
-    spinner $vsperf_pid
-
-    if [[ `grep "Overall test report written to" vsperf_pvp_2pmd_jumbo.log` ]]
-    then
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_2pmd_jumbo.log | awk '{print $11}' )
-
-        echo ""
-        echo "########################################################"
-        echo "# 2000 Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #"
-        echo "# 9000 Byte 2PMD OVS/DPDK PVP test result: ${array[1]} #"
         echo "########################################################"
         echo ""
+
+        if [ "${array[0]%%.*}" -lt 1100000 ] || [ "${array[1]%%.*}" -lt 250000 ]
+        then
+            fail "2000/9000 Byte 2PMD PVP" "Failed to achieve required pps on tests"
+        fi
     else
         echo "!!! VSPERF Test Failed !!!!"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_2pmd_jumbo.log"
     fi
 
 }
@@ -897,7 +891,7 @@ run_ovs_kernel_tests() {
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --vswitch=OvsVanilla --vnf=QemuVirtioNet  &> vsperf_pvp_ovs_kernel.log &
+python ./vsperf pvp_tput --vswitch=OvsVanilla --vnf=QemuVirtioNet --test-params="TRAFFICGEN_LOSSRATE=0.002" &> vsperf_pvp_ovs_kernel.log &
 EOF
 
     sleep 2
@@ -907,56 +901,39 @@ EOF
 
     if [[ `grep "Overall test report written to" vsperf_pvp_ovs_kernel.log` ]]
     then
+
+        echo ""
+        echo "########################################################"
+
         mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_ovs_kernel.log | awk '{print $11}' )
+        if [ "${array[0]%%.*}" -gt 400000 ]
+        then
+            echo "# 64   Byte OVS Kernel PVP test result: ${array[0]} #"
+        else
+            echo "# 64 Bytes OVS Kernel PVP failed to reach required 400 Kpps got ${array[0]} #"
+        fi
 
+        if [ "${array[1]%%.*}" -gt 300000 ]
+        then
+            echo "# 1500 Byte OVS Kernel PVP test result: ${array[1]} #"
+        else
+            echo "# 1500 Bytes OVS Kernel PVP failed to reach required 300 Kpps got ${array[0]} #"
+        fi
+
+        echo "########################################################"
         echo ""
-        echo "#####################################################"
-        echo "# 64   Byte OVS Kernel PVP test result: ${array[0]} #"
-        echo "# 1500 Byte OVS Kernel PVP test result: ${array[1]} #"
-        echo "#####################################################"
-        echo ""
+
+        if [ "${array[0]%%.*}" -lt 400000 ] || [ "${array[1]%%.*}" -lt 300000 ]
+        then
+            fail "64/1500 OVS Kernel PVP" "Failed to achieve required pps on tests"
+        fi
     else
         echo "!!! VSPERF Test Failed !!!!"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_ovs_kernel.log"
     fi
 
 }
 
-run_sriov_tests() {
-    echo ""
-    echo "************************************************"
-    echo "*** Running 64/1500 Bytes SR-IOV VSPerf TEST ***"
-    echo "************************************************"
-    echo ""
-
-    # cat /sys/bus/pci/devices/0000\:04\:10.5/net/p6p2_2/address
-    # ce:09:65:9e:0b:1d
-
-scl enable python33 - << \EOF
-source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --conf-file=/root/vswitchperf/sriov.conf --vswitch=none --vnf=QemuPciPassthrough &> vsperf_pvp_sriov.log &
-EOF
-
-    sleep 2
-    vsperf_pid=`pgrep -f vsperf`
-
-    spinner $vsperf_pid
-
-    if [[ `grep "Overall test report written to" vsperf_pvp_sriov.log` ]]
-    then
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_sriov.log | awk '{print $11}' )
-
-        echo ""
-        echo "#####################################################"
-        echo "# 64   Byte SR-IOV PVP test result: ${array[0]} #"
-        echo "# 1500 Byte SR-IOV PVP test result: ${array[1]} #"
-        echo "#####################################################"
-        echo ""
-    else
-        echo "!!! VSPERF Test Failed !!!!"
-    fi
-
-
-}
 spinner() {
 if [ $# -eq 1 ]
 then
@@ -1010,13 +987,29 @@ vsperf_make() {
     fi
 }
 
-checks
+main() {
+# run all checks
+OS_checks
+hugepage_checks
+conf_checks
+config_file_checks
+nic_card_check
+rpm_check
+network_connection_check
+ovs_running_check
+# finished running checks
+
 git_clone_vsperf
 vsperf_make
 customize_VSPerf_code
 download_VNF_image
 download_conf_files
-#generate_sriov_conf
-#run_sriov_tests
 run_ovs_dpdk_tests
 run_ovs_kernel_tests
+}
+
+if [ "${1}" != "--source-only" ]
+then
+    main "${@}"
+fi
+

@@ -17,8 +17,7 @@ After downloading, Run configure and build
 
     ./b build
 
-NOTE: T-Rex server may need gcc, zlib-devel, and dpdk rpms installed to build
-correctly.
+NOTE: T-Rex server may need gcc, zlib-devel, and dpdk rpms installed to build correctly.
 
 Next step is to create a minimum configuration file. It can be created by script ``dpdk_setup_ports.py``.
 The script with parameter ``-i`` will run in interactive mode and it will create file ``/etc/trex_cfg.yaml``.
@@ -31,8 +30,8 @@ Or example of configuration file can be found at location below, but it must be 
 
     cp trex-core/scripts/cfg/simple_cfg /etc/trex_cfg.yaml
 
-After compilation and configuration trex server must be active in stateless mode.
-It is neccesary for proper connection between Trex server and VSPERF.
+After compilation and configuration trex server must be active in stateless mode. It is neccesary for proper connection
+between Trex server and VSPERF.
 
     cd trex-core/scripts/
 
@@ -54,25 +53,45 @@ script. It runs various checks to verify that the configuration is valid.
 
 The following steps must be completed for the script to execute correctly.
 
-    1. Iommu mode must be enabled in proc/cmdline
+    1. Iommu mode must be enabled in proc/cmdline to support VFIO driver for DPDK
+       - Edit the /etc/default/grub
+       - Add intel_iommu=on iommu=pt
+       - Run "grub2-mkconfig -o /boot/grub2/grub.cfg"
+       - reboot
 
     2. 1G hugepages must be enabled and enough pages available for DPDK and a Guest
 
     to run. Recommend at least 8 Hugepages of 1G in size.
+       - Edit /etc/default/grub
+       - Add default_hugepagesz=1G hugepagesz=1G hugepages=8
+       - Run "grub2-mkconfig -o /boot/grub2/grub.cfg"
+       - reboot
 
     3. CPU-partitioning tuned-adm profile must be active,
 
     tuned-profiles-cpu-partitioning.noarch package may need to be installed.
+       - yum install cpu-partitioning profile
+       - edit /etc/tuned/cpu-partitioning-variables.conf
+       - add CPUs to isolate
+       - apply profile "tuned-adm profile cpu-partitioning"
+       - reboot
 
-    4. Openvswitch, dpdk, dpdk-tools, and qemu-kvm-rhev rpms must be installed locally
+    4. Openvswitch, dpdk, dpdk-tools, and qemu-kvm-rhev rpms must be installed locally from appropriate channels
 
     5. The current user must be root
 
-    6. The OS must be RHEL 7.2 or above.
+    6. The OS must be RHEL 7.4 or above.
 
-    7. The server must have an internet connection to pull files from public servers
+    7. The server must have an internet connection to pull files from public servers for the VNF image to be downloaded
 
     8. The Perf-Verify.conf file must be setup. It is a simple bash text file that
 
     requires NIC, CPU assignment and T-Rex server info.
 
+    9. For SR-IOV script to run SR-IOV must be enabled on the NIC to test and the info in the Perf-Verify.conf must be
+
+    completed.
+
+After completing all setup steps run Perf-Verify.sh from the git cloned folder
+
+If all tests pass for OVS/DPDK and OVS Kernel enable SR-IOV on the NIC and run Perf-Verify-sriov.sh
