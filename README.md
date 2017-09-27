@@ -95,3 +95,13 @@ The following steps must be completed for the script to execute correctly.
 After completing all setup steps run Perf-Verify.sh from the git cloned folder
 
 If all tests pass for OVS/DPDK and OVS Kernel enable SR-IOV on the NIC and run Perf-Verify-sriov.sh
+
+COMING SOON....
+
+  1. Pass/Fail for higher bandwidths 25/40/50/100
+
+  2. Multi-queue test
+
+  3. Better error checking
+
+
