@@ -123,7 +123,7 @@ EOF
         then
             echo "# 1500 Byte SR-IOV Passthrough PVP test result: ${array[1]} #"
         else
-            echo "# 1500 Bytes SR-IOV Passthrough PVP failed to reach required 1.6 Mpps got ${array[0]} #"
+            echo "# 1500 Bytes SR-IOV Passthrough PVP failed to reach required 1.6 Mpps got ${array[1]} #"
         fi
 
         echo "########################################################"

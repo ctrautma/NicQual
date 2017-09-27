@@ -918,7 +918,7 @@ EOF
         then
             echo "# 1500 Byte OVS Kernel PVP test result: ${array[1]} #"
         else
-            echo "# 1500 Bytes OVS Kernel PVP failed to reach required 300 Kpps got ${array[0]} #"
+            echo "# 1500 Bytes OVS Kernel PVP failed to reach required 300 Kpps got ${array[1]} #"
         fi
 
         echo "########################################################"
