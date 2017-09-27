@@ -58,6 +58,16 @@ OS_checks() {
         rpm -ivh lrzip-0.616-5.el7.x86_64.rpm || fail "lrzip install" "Failed to install lrzip"
     fi
 
+    # create log folder
+    echo "*** Creating log folder ***"
+    if ! [ -d /root/RHEL_NIC_QUAL_LOGS ]
+    then
+        mkdir /root/RHEL_NIC_QUAL_LOGS || fail "log folder creation" "Cannot create log folder in root home folder"
+    fi
+    time_stamp=$(date +%Y-%m-%d-%T)
+    NIC_LOG_FOLDER=/root/RHEL_NIC_QUAL_LOGS/$time_stamp
+    mkdir $NIC_LOG_FOLDER || fail "log folder creation" "Cannot create time stamp folder for logs in root home folder"
+
 }
 
 conf_checks() {
@@ -165,12 +175,12 @@ rpm_check() {
 
 network_connection_check() {
 
-     echo "*** Checking github connection ***"
-     if ping -c 1 www.github.com &> /dev/null
+     echo "*** Checking connection to people.redhat.com ***"
+     if ping -c 1 people.redhat.com &> /dev/null
      then
          echo "*** Connection to server succesful ***"
      else
-         fail "Github connection fail" "!!! Cannot connect to www.github.com, please verify internet connection !!!"
+         fail "People.redhat.com connection fail" "!!! Cannot connect to people.redhat.com, please verify internet connection !!!"
      fi
 
 }
@@ -526,7 +536,7 @@ GUEST_SMP = ['3']
 
 GUEST_CORE_BINDING = [('$VCPU1', '$VCPU2', '$VCPU3')]
 
-GUEST_IMAGE = ['CentOS73.qcow2']
+GUEST_IMAGE = ['RHEL7-4VNF.qcow2']
 
 GUEST_BOOT_DRIVE_TYPE = ['ide']
 GUEST_SHARED_DRIVE_TYPE = ['ide']
@@ -570,146 +580,17 @@ EOT
 }
 
 download_VNF_image() {
-    if [ ! -f CentOS73.qcow2 ]
+    if [ ! -f RHEL7-4VNF.qcow2 ]
     then
         echo ""
-        echo "*********************************************************************"
-        echo "*** Creating VNF Image from CentOS mirror. This may take a while! ***"
-        echo "*********************************************************************"
+        echo "***********************************************************************"
+        echo "*** Downloading and decompressing VNF image. This may take a while! ***"
+        echo "***********************************************************************"
         echo ""
-
-        git clone https://github.com/ctrautma/VSPerfBeakerInstall.git &>VNFCreate.log
-        chmod +x VSPerfBeakerInstall/vmcreate.sh
-        yum install -y virt-install libvirt &>>VNFCreate.log
-        systemctl start libvirtd
-
-        enforce_status=`getenforce`
-
-        setenforce permissive
-
-        LOCATION="http://mirror.centos.org/centos/7/os/x86_64/"
-        CPUS=3
-        DEBUG="no"
-        VIOMMU="NO"
-
-        vm=master
-        bridge=virbr0
-        master_image=master.qcow2
-        image_path=/var/lib/libvirt/images/
-        dist=CentOS73
-        location=$LOCATION
-
-        extra="ks=file:/$dist-vm.ks"
-
-        master_exists=`virsh list --all | awk '{print $2}' | grep master`
-        if [ -z $master_exists ]; then
-            master_exists='None'
-        fi
-
-        if [ $master_exists == "master" ]; then
-            virsh destroy $vm 2>/dev/null
-            virsh undefine $vm
-        fi
-
-        echo deleting master image
-        /bin/rm -f $image_path/$master_image
-
-        cat << KS_CFG > $dist-vm.ks
-# System authorization information
-auth --enableshadow --passalgo=sha512
-
-# Use network installation
-url --url=$location
-
-# Use text mode install
-text
-# Run the Setup Agent on first boot
-firstboot --enable
-ignoredisk --only-use=vda
-# Keyboard layouts
-keyboard --vckeymap=us --xlayouts='us'
-# System language
-lang en_US.UTF-8
-
-# Network information
-network  --bootproto=dhcp --device=eth0 --ipv6=auto --activate
-# Root password
-rootpw  redhat
-# Do not configure the X Window System
-skipx
-# System timezone
-timezone US/Eastern --isUtc --ntpservers=10.16.31.254,clock.util.phx2.redhat.com,clock02.util.phx2.redhat.com
-# System bootloader configuration
-bootloader --location=mbr --timeout=5 --append="crashkernel=auto rhgb quiet console=ttyS0,115200"
-# Partition clearing information
-autopart --type=plain
-clearpart --all --initlabel --drives=vda
-zerombr
-
-%packages
-@base
-@core
-@network-tools
-%end
-
-%post
-
-yum install -y tuna git nano ftp wget sysstat 1>/root/post_install.log 2>&1
-git clone https://github.com/ctrautma/vmscripts.git /root/vmscripts 1>/root/post_install.log 2>&1
-mv /root/vmscripts/* /root/. 1>/root/post_install.log 2>&1
-rm -RF /root/vmscripts 1>/root/post_install.log 2>&1
-if [ "$VIOMMU" == "NO" ]; then
-    /root/setup_rpms.sh 1>/root/post_install.log 2>&1
-elif [ "$VIOMMU" == "YES" ]; then
-    /root/setup_rpms.sh -v 1>/root/post_install.log 2>&1
-fi
-
-%end
-
-shutdown
-
-KS_CFG
-
-        qemu-img create -f qcow2 $image_path/$master_image 100G &>>VNFCreate.log
-        virsh list --all | grep master && virsh undefine master &>>VNFCreate.log
-
-        if [ $DEBUG == "yes" ]; then
-        virt-install --name=$vm\
-             --virt-type=kvm\
-             --disk path=$image_path/$master_image,format=qcow2,,size=3,bus=virtio\
-             --vcpus=$CPUS\
-             --ram=4096\
-             --network bridge=$bridge\
-             --graphics none\
-             --extra-args="$extra"\
-             --initrd-inject=$dist-vm.ks\
-             --location=$location\
-             --noreboot\
-                 --serial pty\
-                 --serial file,path=/tmp/$vm.console
-        else
-        virt-install --name=$vm\
-                 --virt-type=kvm\
-                 --disk path=$image_path/$master_image,format=qcow2,,size=3,bus=virtio\
-                 --vcpus=$CPUS\
-                 --ram=4096\
-                 --network bridge=$bridge\
-                 --graphics none\
-                 --extra-args="$extra"\
-                 --initrd-inject=$dist-vm.ks\
-                 --location=$location\
-                 --noreboot\
-                 --serial pty\
-                 --serial file,path=/tmp/$vm.console &>> VNFCreate.log
-        fi
-
-        rm $dist-vm.ks
-
-        setenforce $enforce_status
-
-        mv /var/lib/libvirt/images/master.qcow2 ~/vswitchperf/CentOS73.qcow2
+        wget people.redhat.com/ctrautma/RHEL7-4VNF.qcow2.lrz || fail "VNF download" "Unabled to download VNF"
+        lrzip -d RHEL7-4VNF.qcow2.lrz || fail "VNF decompress" "Unable to decompress VNF zip"
+        rm -f RHEL7-4VNF.qcow2.lrz
     fi
-    echo ""
 
 }
 
@@ -730,12 +611,12 @@ git_clone_vsperf() {
     then
         echo "*** Cloning OPNFV VSPerf project ***"
 
-        yum install -y git &>>vsperf_clone.log
-        git clone https://gerrit.opnfv.org/gerrit/vswitchperf &>>vsperf_clone.log
+        yum install -y git &>$NIC_LOG_FOLDER/vsperf_clone.log
+        git clone https://gerrit.opnfv.org/gerrit/vswitchperf &>>$NIC_LOG_FOLDER/vsperf_clone.log
     fi
     cd vswitchperf
-    git checkout -f I8148deba9039c3a0feb6394d6671aa10c5afaf0a&>>vsperf_clone.log # Euphrates release
-    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/61/43061/1 # T-Rex SRIOV patch
+    git checkout -f I8148deba9039c3a0feb6394d6671aa10c5afaf0a &>>$NIC_LOG_FOLDER/vsperf_clone.log # Euphrates release
+    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/61/43061/1 &>>$NIC_LOG_FOLDER/vsperf_clone.log # T-Rex SRIOV patch
 
 }
 
@@ -749,7 +630,7 @@ run_ovs_dpdk_tests() {
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput &> vsperf_pvp_2pmd.log &
+python ./vsperf pvp_tput &> $NIC_LOG_FOLDER/vsperf_pvp_2pmd.log &
 EOF
 
     sleep 2
@@ -757,13 +638,13 @@ EOF
 
     spinner $vsperf_pid
 
-    if [[ `grep "Overall test report written to" vsperf_pvp_2pmd.log` ]]
+    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_2pmd.log` ]]
     then
 
         echo ""
         echo "########################################################"
 
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_2pmd.log | awk '{print $11}' )
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_2pmd.log | awk '{print $11}' )
         if [ "${array[0]%%.*}" -gt 3400000 ]
         then
             echo "# 64   Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #"
@@ -787,7 +668,7 @@ EOF
         fi
     else
         echo "!!! VSPERF Test Failed !!!!"
-        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_2pmd.log"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_2pmd.log"
     fi
 
     echo ""
@@ -798,7 +679,7 @@ EOF
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --test-params="VSWITCH_PMD_CPU_MASK=$PMD4MASK" &> vsperf_pvp_4pmd.log &
+python ./vsperf pvp_tput --test-params="VSWITCH_PMD_CPU_MASK=$PMD4MASK" &> $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log &
 EOF
 
     sleep 2
@@ -806,13 +687,13 @@ EOF
 
     spinner $vsperf_pid
 
-    if [[ `grep "Overall test report written to" vsperf_pvp_4pmd.log` ]]
+    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log` ]]
     then
 
         echo ""
         echo "########################################################"
 
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_4pmd.log | awk '{print $11}' )
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log | awk '{print $11}' )
         if [ "${array[0]%%.*}" -gt 3400000 ]
         then
             echo "# 64   Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #"
@@ -836,7 +717,7 @@ EOF
         fi
     else
         echo "!!! VSPERF Test Failed !!!!"
-        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_4pmd.log"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log"
     fi
 
     echo ""
@@ -847,7 +728,7 @@ EOF
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf phy2phy_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &> vsperf_phy2phy_2pmd_jumbo.log &
+python ./vsperf phy2phy_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &> $NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log &
 EOF
 
     sleep 2
@@ -855,13 +736,13 @@ EOF
 
     spinner $vsperf_pid
 
-    if [[ `grep "Overall test report written to" vsperf_phy2phy_2pmd_jumbo.log` ]]
+    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log` ]]
     then
 
         echo ""
         echo "########################################################"
 
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_phy2phy_2pmd_jumbo.log | awk '{print $11}' )
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log | awk '{print $11}' )
         if [ "${array[0]%%.*}" -gt 1100000 ]
         then
             echo "# 2000 Byte 2PMD OVS/DPDK Phy2Phy test result: ${array[0]} #"
@@ -885,7 +766,7 @@ EOF
         fi
     else
         echo "!!! VSPERF Test Failed !!!!"
-        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_2pmd_jumbo.log"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_2pmd_jumbo.log"
     fi
 
 }
@@ -899,7 +780,7 @@ run_ovs_kernel_tests() {
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --vswitch=OvsVanilla --vnf=QemuVirtioNet --test-params="TRAFFICGEN_LOSSRATE=0.002" &> vsperf_pvp_ovs_kernel.log &
+python ./vsperf pvp_tput --vswitch=OvsVanilla --vnf=QemuVirtioNet --test-params="TRAFFICGEN_LOSSRATE=0.002" &> $NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log &
 EOF
 
     sleep 2
@@ -907,13 +788,13 @@ EOF
 
     spinner $vsperf_pid
 
-    if [[ `grep "Overall test report written to" vsperf_pvp_ovs_kernel.log` ]]
+    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log` ]]
     then
 
         echo ""
         echo "########################################################"
 
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_ovs_kernel.log | awk '{print $11}' )
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log | awk '{print $11}' )
         if [ "${array[0]%%.*}" -gt 400000 ]
         then
             echo "# 64   Byte OVS Kernel PVP test result: ${array[0]} #"
@@ -937,7 +818,7 @@ EOF
         fi
     else
         echo "!!! VSPERF Test Failed !!!!"
-        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_ovs_kernel.log"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log"
     fi
 
 }
@@ -984,13 +865,13 @@ vsperf_make() {
             cp -R systems/rhel/7.2 systems/rhel/$VERSION_ID
         fi
         cd systems
-        ./build_base_machine.sh &> /root/vsperf_install.log &
+        ./build_base_machine.sh &> $NIC_LOG_FOLDER/vsperf_install.log &
         spinner
         cd ..
 
-        if ! [[ `grep "finished making all" /root/vsperf_install.log` ]]
+        if ! [[ `grep "finished making all" $NIC_LOG_FOLDER/vsperf_install.log` ]]
         then
-            fail "VSPerf Install" "VSPerf installation failed, please check log"
+            fail "VSPerf Install" "VSPerf installation failed, please check log at $NIC_LOG_FOLDER/vsperf_install.log"
         fi
     fi
 }

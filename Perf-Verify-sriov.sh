@@ -25,9 +25,6 @@
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#set -o allexport
-#source Perf-Verify.sh
-#set +o allexport
 . ./Perf-Verify.sh --source-only
 
 echo "*** SR-IOV MUST be enabled already for this test to work!!!! ***"
@@ -97,7 +94,7 @@ run_sriov_tests() {
 cd /root/vswitchperf
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --conf-file=/root/vswitchperf/sriov.conf --vswitch=none --vnf=QemuPciPassthrough &> vsperf_pvp_sriov.log &
+python ./vsperf pvp_tput --conf-file=/root/vswitchperf/sriov.conf --vswitch=none --vnf=QemuPciPassthrough &> $NIC_LOG_FOLDER/vsperf_pvp_sriov.log &
 EOF
 
     sleep 2
@@ -105,13 +102,13 @@ EOF
 
     spinner $vsperf_pid
 
-    if [[ `grep "Overall test report written to" vsperf_pvp_sriov.log` ]]
+    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_sriov.log` ]]
     then
 
         echo ""
         echo "########################################################"
 
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" vsperf_pvp_sriov.log | awk '{print $11}' )
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_sriov.log | awk '{print $11}' )
         if [ "${array[0]%%.*}" -gt 18000000 ]
         then
             echo "# 64   Byte SR-IOV Passthrough PVP test result: ${array[0]} #"
@@ -135,7 +132,7 @@ EOF
         fi
     else
         echo "!!! VSPERF Test Failed !!!!"
-        fail "Error on VSPerf test" "VSPerf test failed. Please check log at /root/vswitchperf/vsperf_pvp_sriov.log"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_sriov.log"
     fi
 
 }
