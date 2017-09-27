@@ -65,8 +65,9 @@ OS_checks() {
         mkdir /root/RHEL_NIC_QUAL_LOGS || fail "log folder creation" "Cannot create log folder in root home folder"
     fi
     time_stamp=$(date +%Y-%m-%d-%T)
-    NIC_LOG_FOLDER=/root/RHEL_NIC_QUAL_LOGS/$time_stamp
+    NIC_LOG_FOLDER="/root/RHEL_NIC_QUAL_LOGS/$time_stamp"
     mkdir $NIC_LOG_FOLDER || fail "log folder creation" "Cannot create time stamp folder for logs in root home folder"
+    echo "NIC_LOG_FOLDER=$NIC_LOG_FOLDER" > /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
 
 }
 
@@ -630,7 +631,8 @@ run_ovs_dpdk_tests() {
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput &> $NIC_LOG_FOLDER/vsperf_pvp_2pmd.log &
+source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+python ./vsperf pvp_tput &>$NIC_LOG_FOLDER/vsperf_pvp_2pmd.log &
 EOF
 
     sleep 2
@@ -673,13 +675,14 @@ EOF
 
     echo ""
     echo "***********************************************************"
-    echo "*** Running 64/1500 Bytes 2PMD OVS/DPDK PVP VSPerf TEST ***"
+    echo "*** Running 64/1500 Bytes 4PMD OVS/DPDK PVP VSPerf TEST ***"
     echo "***********************************************************"
     echo ""
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --test-params="VSWITCH_PMD_CPU_MASK=$PMD4MASK" &> $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log &
+source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+python ./vsperf pvp_tput --test-params="VSWITCH_PMD_CPU_MASK='$PMD4MASK'" &>$NIC_LOG_FOLDER/vsperf_pvp_4pmd.log &
 EOF
 
     sleep 2
@@ -694,26 +697,26 @@ EOF
         echo "########################################################"
 
         mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log | awk '{print $11}' )
-        if [ "${array[0]%%.*}" -gt 3400000 ]
+        if [ "${array[0]%%.*}" -gt 6500000 ]
         then
-            echo "# 64   Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #"
+            echo "# 64   Byte 4PMD OVS/DPDK PVP test result: ${array[0]} #"
         else
-            echo "# 64 Bytes 2 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
+            echo "# 64 Bytes 4 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
         fi
 
         if [ "${array[1]%%.*}" -gt 1500000 ]
         then
-            echo "# 1500 Byte 2PMD OVS/DPDK PVP test result: ${array[1]} #"
+            echo "# 1500 Byte 4PMD OVS/DPDK PVP test result: ${array[1]} #"
         else
-            echo "# 1500 Bytes 2 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
+            echo "# 1500 Bytes 4 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
         fi
 
         echo "########################################################"
         echo ""
 
-        if [ "${array[0]%%.*}" -lt 3400000 ] || [ "${array[1]%%.*}" -lt 1500000 ]
+        if [ "${array[0]%%.*}" -lt 6500000 ] || [ "${array[1]%%.*}" -lt 1500000 ]
         then
-            fail "64/1500 Byte 2PMD PVP" "Failed to achieve required pps on tests"
+            fail "64/1500 Byte 4PMD PVP" "Failed to achieve required pps on tests"
         fi
     else
         echo "!!! VSPERF Test Failed !!!!"
@@ -728,7 +731,8 @@ EOF
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf phy2phy_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &> $NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log &
+source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+python ./vsperf phy2phy_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &>$NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log &
 EOF
 
     sleep 2
@@ -780,7 +784,8 @@ run_ovs_kernel_tests() {
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-python ./vsperf pvp_tput --vswitch=OvsVanilla --vnf=QemuVirtioNet --test-params="TRAFFICGEN_LOSSRATE=0.002" &> $NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log &
+source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+python ./vsperf pvp_tput --vswitch=OvsVanilla --vnf=QemuVirtioNet --test-params="TRAFFICGEN_LOSSRATE=0.02" &>$NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log &
 EOF
 
     sleep 2
