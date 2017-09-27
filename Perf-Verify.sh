@@ -51,6 +51,13 @@ OS_checks() {
         fail "OS Check" "OS Much be RHEL"
     fi
 
+    # Install lrzip
+    echo "*** Installing lrzip if needed ***"
+    if ! [ `command -v lrzip ` ]
+    then
+        rpm -ivh lrzip-0.616-5.el7.x86_64.rpm || fail "lrzip install" "Failed to install lrzip"
+    fi
+
 }
 
 conf_checks() {
