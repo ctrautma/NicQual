@@ -130,9 +130,13 @@ config_file_checks() {
         then
             fail "PMD Mask PARAM" "PMD2MASK Param and/or PMD4MASK not set in Perf-Verify.conf file"
         fi
-        if [ -z $VCPU1 ] || [ -z $VCPU2 ] || [ -z $VCPU3 ]
+        if [ -z $VCPU1 ] || [ -z $VCPU2 ] || [ -z $VCPU3 ] || [ -z $VCPU4 ] || [ -z $VCPU5 ]
         then
             fail "VCPU Params" "Guest VCPU Param not set in Perf-Verify.conf file"
+        fi
+        if [ -z $TRAFFICGEN_TREX_HOST_IP_ADDR ] || [ -z $TRAFFICGEN_TREX_USER ] || [ -z $TRAFFICGEN_TREX_BASE_DIR ] || [ -z $TRAFFICGEN_TREX_PORT1 ] || [ -z $TRAFFICGEN_TREX_PORT2 ]
+        then
+            fail "TREX Params" "T-Rex settings not set in Perf-Verify.conf file"
         fi
     else
         fail "Config File" "Cannot locate Perf-Verify.conf"
@@ -562,7 +566,7 @@ GUEST_TESTPMD_PARAMS = ['-l 0,1,2 -n 4 --socket-mem 512 -- '
                         '--burst=64 -i --txqflags=0xf00 '
                         '--disable-hw-vlan --nb-cores=2, --txq=1 --rxq=1 --rxd=512 --txd=512']
 
-TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':15, 'TRAFFICGEN_LOSSRATE':0}
+TEST_PARAMS = {'TRAFFICGEN_PKT_SIZES':(64,1500), 'TRAFFICGEN_DURATION':60, 'TRAFFICGEN_LOSSRATE':0}
 
 # Update your Trex trafficgen info below
 TRAFFICGEN_TREX_HOST_IP_ADDR = '$TRAFFICGEN_TREX_HOST_IP_ADDR'
@@ -581,7 +585,7 @@ EOT
 }
 
 download_VNF_image() {
-    if [ ! -f RHEL7-4VNF.qcow2 ]
+    if [ ! -f RHEL7-4VNF.qcow2 ] || [ ! -f RHEL7-4VNF-2Q.qcow2 ]
     then
         echo ""
         echo "***********************************************************************"
@@ -589,8 +593,11 @@ download_VNF_image() {
         echo "***********************************************************************"
         echo ""
         wget people.redhat.com/ctrautma/RHEL7-4VNF.qcow2.lrz || fail "VNF download" "Unabled to download VNF"
+        wget people.redhat.com/ctrautma/RHEL7-4VNF-2Q.qcow2.lrz || fail "VNF download" "Unable to download VNF 2Q"
         lrzip -d RHEL7-4VNF.qcow2.lrz || fail "VNF decompress" "Unable to decompress VNF zip"
+        lrzip -d RHEL7-4VNF-2Q.qcow2.lrz || fail "VNF decompress" "Unable to decompress VNF zip"
         rm -f RHEL7-4VNF.qcow2.lrz
+        rm -f RHEL7-4VNF-2Q.qcow2.lrz
     fi
 
 }
@@ -604,6 +611,26 @@ fail() {
     echo "!!! $2 !!!"
     echo ""
     exit 1
+
+}
+
+generate_2queue_conf() {
+
+cat <<EOT >>/root/vswitchperf/twoqueue.conf
+
+GUEST_TESTPMD_PARAMS = ['-l 0,1,2,3,4 -n 4 --socket-mem 512 -- '
+                        '--burst=64 -i --txqflags=0xf00 '
+                        '--disable-hw-vlan --nb-cores=4, --txq=2 --rxq=2 --rxd=512 --txd=512']
+
+VSWITCH_PMD_CPU_MASK = '$PMD4MASK'
+
+GUEST_SMP = ['5']
+
+GUEST_CORE_BINDING = [('$VCPU1', '$VCPU2', '$VCPU3', '$VCPU4', '$VCPU5')]
+
+GUEST_IMAGE = ['RHEL7-4VNF-2Q.qcow2']
+
+EOT
 
 }
 
@@ -675,14 +702,14 @@ EOF
 
     echo ""
     echo "***********************************************************"
-    echo "*** Running 64/1500 Bytes 4PMD OVS/DPDK PVP VSPerf TEST ***"
+    echo "*** Running 64/1500 Bytes 2 queue 4PMD OVS/DPDK PVP VSPerf TEST ***"
     echo "***********************************************************"
     echo ""
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
 source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
-python ./vsperf pvp_tput --test-params="VSWITCH_PMD_CPU_MASK='$PMD4MASK'" &>$NIC_LOG_FOLDER/vsperf_pvp_4pmd.log &
+python ./vsperf pvp_tput --conf-file=/root/vswitchperf/twoqueue.conf &>$NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log &
 EOF
 
     sleep 2
@@ -690,25 +717,25 @@ EOF
 
     spinner $vsperf_pid
 
-    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log` ]]
+    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log` ]]
     then
 
         echo ""
         echo "########################################################"
 
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log | awk '{print $11}' )
+        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log | awk '{print $11}' )
         if [ "${array[0]%%.*}" -gt 6500000 ]
         then
-            echo "# 64   Byte 4PMD OVS/DPDK PVP test result: ${array[0]} #"
+            echo "# 64   Byte 2 queue 4PMD OVS/DPDK PVP test result: ${array[0]} #"
         else
-            echo "# 64 Bytes 4 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
+            echo "# 64 Bytes 2 queue 4 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
         fi
 
         if [ "${array[1]%%.*}" -gt 1500000 ]
         then
-            echo "# 1500 Byte 4PMD OVS/DPDK PVP test result: ${array[1]} #"
+            echo "# 1500 Byte 2 queue 4PMD OVS/DPDK PVP test result: ${array[1]} #"
         else
-            echo "# 1500 Bytes 4 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
+            echo "# 1500 Bytes 2 queue 4 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
         fi
 
         echo "########################################################"
@@ -716,11 +743,11 @@ EOF
 
         if [ "${array[0]%%.*}" -lt 6500000 ] || [ "${array[1]%%.*}" -lt 1500000 ]
         then
-            fail "64/1500 Byte 4PMD PVP" "Failed to achieve required pps on tests"
+            fail "64/1500 Byte 2 queue 4PMD PVP" "Failed to achieve required pps on tests"
         fi
     else
         echo "!!! VSPERF Test Failed !!!!"
-        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_4pmd.log"
+        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log"
     fi
 
     echo ""

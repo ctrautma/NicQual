@@ -1,9 +1,22 @@
 # Platform QE Nic Qualification Script
 
-Requires two servers, one for running the tests, and one for running the T-Rex
-Traffic Generator.
+The QE Scripts are three separate scripts that all must pass.
 
-T-Rex generator should be setup as per the following instructions
+The functional test script runs a plethora of tests to verify NICs pass functional requirements.
+
+The performance based tests use an upstream project called VSPerf from OPNFV to test performance
+using very basic flows rules and parameters. This is broken into two scripts, the first script
+will test phy2phy, and PVP scenarios. The second script requires SR-IOV to be enabled on the NICs
+in test.
+
+The performance based tests require servers. One server will have TREX installed, the other will
+be a clean install system running RHEL 7.4 or greater. The servers should be wired back to back
+from the test NICs to the output NICs of the T-Rex server.
+
+The server with the NICs under test must have 9 available Hyperthreads on the NIC Numa to run all
+tests correctly. Do not use CPU 0 or its paired hyperthread for PMD or VCPU assignments.
+
+The T-Rex generator should be setup as per the following instructions
 
 Download the Trex latest release from here:
 
@@ -55,7 +68,7 @@ The following steps must be completed for the script to execute correctly.
 
     1. Iommu mode must be enabled in proc/cmdline to support VFIO driver for DPDK
        - Edit the /etc/default/grub
-       - Add intel_iommu=on iommu=pt
+       - Add intel_iommu=on iommu=pt to GRUB_CMDLINE_LINUX
        - Run "grub2-mkconfig -o /boot/grub2/grub.cfg"
        - reboot
 
@@ -63,7 +76,7 @@ The following steps must be completed for the script to execute correctly.
 
     to run. Recommend at least 8 Hugepages of 1G in size.
        - Edit /etc/default/grub
-       - Add default_hugepagesz=1G hugepagesz=1G hugepages=8
+       - Add default_hugepagesz=1G hugepagesz=1G hugepages=8 to GRUB_CMDLINE_LINUX
        - Run "grub2-mkconfig -o /boot/grub2/grub.cfg"
        - reboot
 
@@ -72,9 +85,33 @@ The following steps must be completed for the script to execute correctly.
     tuned-profiles-cpu-partitioning.noarch package may need to be installed.
        - yum install cpu-partitioning profile
        - edit /etc/tuned/cpu-partitioning-variables.conf
-       - add CPUs to isolate
+       - add CPUs to isolate which will be used for PMDs and VCPUs
        - apply profile "tuned-adm profile cpu-partitioning"
        - reboot
+
+    If you wish to apply isolated CPUs to all on the NIC Numa you can use the below code to do so.
+
+        NIC1=<NIC1 Dev name> # such as p4p1
+        NIC2=<NIC2 Dev name> # such as p4p2
+
+        NIC1_PCI_ADDR=`ethtool -i $NIC1 | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
+        NIC2_PCI_ADDR=`ethtool -i $NIC2 | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
+        NICNUMA=`cat /sys/class/net/$NIC1/device/numa_node`
+
+        ISOLCPUS=`lscpu | grep "NUMA node$NICNUMA" | awk '{print $4}'`
+
+        if [ `echo $ISOLCPUS | awk /'^0,'/` ]
+            then
+            ISOLCPUS=`echo $ISOLCPUS | cut -c 3-`
+        fi
+
+        # ECHO your ISOLCPUS to make sure they are accurate.
+
+        echo $ISOLCPUS
+
+        echo -e "isolated_cores=$ISOLCPUS" >> /etc/tuned/cpu-partitioning-variables.conf
+        tuned-adm profile cpu-partitioning
+        reboot
 
     4. Openvswitch, dpdk, dpdk-tools, and qemu-kvm-rhev rpms must be installed locally from appropriate channels
 
@@ -96,12 +133,34 @@ After completing all setup steps run Perf-Verify.sh from the git cloned folder
 
 If all tests pass for OVS/DPDK and OVS Kernel enable SR-IOV on the NIC and run Perf-Verify-sriov.sh
 
+Once all Performance tests have passed next prepare to run the functional test qualification script.
+
+a) Prepare two machines with the tested RHEL disto installed
+     The topology for physical connection can be found in rh_nic_cert.sh
+
+  b) copy the generated rh_nic_cert.tar to two machines and decompress the package
+
+  c) go to the directory rh_nic_cert
+
+  d) customize the configuration in rh_nic_cert.sh by your test environment
+     The detail for each configuration can be found in rh_nic_cert.sh
+
+     i) Run part of test
+        QE_SKIP_TEST: used to list the skipped test cases
+        QE_TEST: used to list the specific test to run
+
+        NOTE: QE_SKIP_TEST has a higher priority than QE_TEST, that is, if a test is listed in QE_SKIP_TEST, the test will be skipped even it's listed in QE_TESt also
+
+     ii) Switch supported
+        The bonding test cases will use a switch between the two linux machines. Now in the test script Cisco and Juniper switch are supported.
+        In your test envrionment, if Cisco or Juniper switch is used, you can define your switch in bin/swlist.
+        If other switch is used, one option is that you can skip the bonding test by listing $BONDING_TEST in $QE_SKIP_TEST in rh_nic_cert.sh, the other option is to extend the switch script
+        lib/lib_swcfg.sh is the implementation of all functions used by the test to control switch.
+
+  e) run rh_nic_cert.sh
+
 COMING SOON....
 
   1. Pass/Fail for higher bandwidths 25/40/50/100
 
-  2. Multi-queue test
-
-  3. Better error checking
-
-
+  2. Better error checking
