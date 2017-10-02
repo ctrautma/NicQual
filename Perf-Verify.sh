@@ -592,12 +592,12 @@ download_VNF_image() {
         echo "*** Downloading and decompressing VNF image. This may take a while! ***"
         echo "***********************************************************************"
         echo ""
-        wget people.redhat.com/ctrautma/RHEL7-4VNF.qcow2.lrz || fail "VNF download" "Unabled to download VNF"
-        wget people.redhat.com/ctrautma/RHEL7-4VNF-2Q.qcow2.lrz || fail "VNF download" "Unable to download VNF 2Q"
-        lrzip -d RHEL7-4VNF.qcow2.lrz || fail "VNF decompress" "Unable to decompress VNF zip"
-        lrzip -d RHEL7-4VNF-2Q.qcow2.lrz || fail "VNF decompress" "Unable to decompress VNF zip"
-        rm -f RHEL7-4VNF.qcow2.lrz
-        rm -f RHEL7-4VNF-2Q.qcow2.lrz
+        wget people.redhat.com/ctrautma/RHEL7-4VNF-1Q.qcow2.lrz || fail "VNF download" "Unabled to download VNF"
+        #wget people.redhat.com/ctrautma/RHEL7-4VNF-2Q.qcow2.lrz || fail "VNF download" "Unable to download VNF 2Q"
+        lrzip -d RHEL7-4VNF-1Q.qcow2.lrz || fail "VNF decompress" "Unable to decompress VNF zip"
+        #lrzip -d RHEL7-4VNF-2Q.qcow2.lrz || fail "VNF decompress" "Unable to decompress VNF zip"
+        rm -f RHEL7-4VNF-1Q.qcow2.lrz
+        #rm -f RHEL7-4VNF-2Q.qcow2.lrz
     fi
 
 }
@@ -706,49 +706,49 @@ EOF
     echo "***********************************************************"
     echo ""
 
-scl enable python33 - << \EOF
-source /root/vsperfenv/bin/activate
-source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
-python ./vsperf pvp_tput --conf-file=/root/vswitchperf/twoqueue.conf &>$NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log &
-EOF
-
-    sleep 2
-    vsperf_pid=`pgrep -f vsperf`
-
-    spinner $vsperf_pid
-
-    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log` ]]
-    then
-
-        echo ""
-        echo "########################################################"
-
-        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log | awk '{print $11}' )
-        if [ "${array[0]%%.*}" -gt 6500000 ]
-        then
-            echo "# 64   Byte 2 queue 4PMD OVS/DPDK PVP test result: ${array[0]} #"
-        else
-            echo "# 64 Bytes 2 queue 4 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
-        fi
-
-        if [ "${array[1]%%.*}" -gt 1500000 ]
-        then
-            echo "# 1500 Byte 2 queue 4PMD OVS/DPDK PVP test result: ${array[1]} #"
-        else
-            echo "# 1500 Bytes 2 queue 4 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
-        fi
-
-        echo "########################################################"
-        echo ""
-
-        if [ "${array[0]%%.*}" -lt 6500000 ] || [ "${array[1]%%.*}" -lt 1500000 ]
-        then
-            fail "64/1500 Byte 2 queue 4PMD PVP" "Failed to achieve required pps on tests"
-        fi
-    else
-        echo "!!! VSPERF Test Failed !!!!"
-        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log"
-    fi
+#scl enable python33 - << \EOF
+#source /root/vsperfenv/bin/activate
+#source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+#python ./vsperf pvp_tput --conf-file=/root/vswitchperf/twoqueue.conf &>$NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log &
+#EOF
+#
+#    sleep 2
+#    vsperf_pid=`pgrep -f vsperf`
+#
+#    spinner $vsperf_pid
+#
+#    if [[ `grep "Overall test report written to" $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log` ]]
+#    then
+#
+#        echo ""
+#        echo "########################################################"
+#
+#        mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log | awk '{print $11}' )
+#        if [ "${array[0]%%.*}" -gt 6500000 ]
+#        then
+#            echo "# 64   Byte 2 queue 4PMD OVS/DPDK PVP test result: ${array[0]} #"
+#        else
+#            echo "# 64 Bytes 2 queue 4 PMD OVS/DPDK PVP failed to reach required 3.5 Mpps got ${array[0]} #"
+#        fi
+#
+#        if [ "${array[1]%%.*}" -gt 1500000 ]
+#        then
+#            echo "# 1500 Byte 2 queue 4PMD OVS/DPDK PVP test result: ${array[1]} #"
+#        else
+#            echo "# 1500 Bytes 2 queue 4 PMD OVS/DPDK PVP failed to reach required 1.5 Mpps got ${array[1]} #"
+#        fi
+#
+#        echo "########################################################"
+#        echo ""
+#
+#        if [ "${array[0]%%.*}" -lt 6500000 ] || [ "${array[1]%%.*}" -lt 1500000 ]
+#        then
+#            fail "64/1500 Byte 2 queue 4PMD PVP" "Failed to achieve required pps on tests"
+#        fi
+#    else
+#        echo "!!! VSPERF Test Failed !!!!"
+#        fail "Error on VSPerf test" "VSPerf test failed. Please check log at $NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log"
+#    fi
 
     echo ""
     echo "*****************************************************************"
@@ -925,6 +925,7 @@ vsperf_make
 customize_VSPerf_code
 download_VNF_image
 download_conf_files
+generate_2queue_conf
 run_ovs_dpdk_tests
 run_ovs_kernel_tests
 }
