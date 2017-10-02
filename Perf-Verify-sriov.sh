@@ -31,8 +31,8 @@ echo "*** SR-IOV MUST be enabled already for this test to work!!!! ***"
 
 generate_sriov_conf() {
 
-    NIC1_VF_PCI_ADDR=`ethtool -i $NIC1_VF | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
-    NIC2_VF_PCI_ADDR=`ethtool -i $NIC2_VF | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
+    NIC1_VF_PCI_ADDR=`ethtool -i $NIC1_VF | awk /bus-info/ | awk {'print $2'}`
+    NIC2_VF_PCI_ADDR=`ethtool -i $NIC2_VF | awk /bus-info/ | awk {'print $2'}`
     NIC1_VF_MAC=`cat /sys/class/net/$NIC1_VF/address`
     NIC2_VF_MAC=`cat /sys/class/net/$NIC2_VF/address`
 

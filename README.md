@@ -94,8 +94,8 @@ The following steps must be completed for the script to execute correctly.
         NIC1=<NIC1 Dev name> # such as p4p1
         NIC2=<NIC2 Dev name> # such as p4p2
 
-        NIC1_PCI_ADDR=`ethtool -i $NIC1 | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
-        NIC2_PCI_ADDR=`ethtool -i $NIC2 | grep -Eo '[0-9]+:[0-9]+:[0-9]+\.[0-9]+'`
+        NIC1_PCI_ADDR=`ethtool -i $NIC1 | awk /bus-info/ | awk {'print $2'}`
+        NIC2_PCI_ADDR=`ethtool -i $NIC2 | awk /bus-info/ | awk {'print $2'}`
         NICNUMA=`cat /sys/class/net/$NIC1/device/numa_node`
 
         ISOLCPUS=`lscpu | grep "NUMA node$NICNUMA" | awk '{print $4}'`
