@@ -439,6 +439,21 @@ download_conf_files() {
     NIC1_PCI_ADDR=`ethtool -i $NIC1 | awk /bus-info/ | awk {'print $2'}`
     NIC2_PCI_ADDR=`ethtool -i $NIC2 | awk /bus-info/ | awk {'print $2'}`
 
+    NUM_NUMAS=`lscpu | awk /'NUMA node\(s\)'/ | awk {'print $3'}`
+
+    if [ "$NUM_NUMAS" == "2" ]
+        then
+        SOCKET_MEMORY="['1024', '1024']"
+    elif [ "$NUM_NUMAS" == "3" ]
+        then
+        SOCKET_MEMORY="['1024', '1024', '1024']"
+    elif [ "$NUM_NUMAS" == "1" ]
+        then
+        SOCKET_MEMORY="['1024']"
+    fi
+
+    git checkout conf/10_custom.conf --force # reset the config
+
     cat <<EOT >> ~/vswitchperf/conf/10_custom.conf
 
 PATHS['qemu'] = {
@@ -533,7 +548,7 @@ GUEST_NIC_QUEUES = [0]
 
 WHITELIST_NICS = ['$NIC1_PCI_ADDR', '$NIC2_PCI_ADDR']
 
-DPDK_SOCKET_MEM = ['1024', '1024']
+DPDK_SOCKET_MEM = $SOCKET_MEMORY
 
 VSWITCH_PMD_CPU_MASK = '$PMD2MASK'
 
@@ -579,6 +594,39 @@ TRAFFICGEN_TREX_LINE_SPEED_GBPS = '$TRAFFICGEN_TREX_LINE_SPEED_GBPS'
 TRAFFICGEN = 'Trex'
 TRAFFICGEN_TREX_LATENCY_PPS = 0
 TRAFFICGEN_TREX_RFC2544_TPUT_THRESHOLD = 0.5
+
+TRAFFIC = {
+    'traffic_type' : 'rfc2544_throughput',
+    'frame_rate' : 100,
+    'bidir' : 'True',  # will be passed as string in title format to tgen
+    'multistream' : 1024,
+    'stream_type' : 'L3',
+    'pre_installed_flows' : 'No',           # used by vswitch implementation
+    'flow_type' : 'port',                   # used by vswitch implementation
+
+    'l2': {
+        'framesize': 64,
+        'srcmac': '00:00:00:00:00:00',
+        'dstmac': '00:00:00:00:00:00',
+    },
+    'l3': {
+        'enabled': True,
+        'proto': 'udp',
+        'srcip': '1.1.1.1',
+        'dstip': '90.90.90.90',
+    },
+    'l4': {
+        'enabled': True,
+        'srcport': 3000,
+        'dstport': 3001,
+    },
+    'vlan': {
+        'enabled': False,
+        'id': 0,
+        'priority': 0,
+        'cfi': 0,
+    },
+}
 
 EOT
 
@@ -643,8 +691,10 @@ git_clone_vsperf() {
         git clone https://gerrit.opnfv.org/gerrit/vswitchperf &>>$NIC_LOG_FOLDER/vsperf_clone.log
     fi
     cd vswitchperf
-    git checkout -f I8148deba9039c3a0feb6394d6671aa10c5afaf0a &>>$NIC_LOG_FOLDER/vsperf_clone.log # Euphrates release
-    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/61/43061/1 &>>$NIC_LOG_FOLDER/vsperf_clone.log # T-Rex SRIOV patch
+    git checkout -f 9d2900035923bf307477c5b4b8dc423ba1b2086f &>>$NIC_LOG_FOLDER/vsperf_clone.log # Euphrates release
+    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/75/44275/1 # single numa fix
+    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/47/44247/4 # T-Rex multistream
+
 
 }
 
