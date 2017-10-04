@@ -802,14 +802,14 @@ EOF
 
     echo ""
     echo "*****************************************************************"
-    echo "*** Running 2000/9000 Bytes 2PMD Phy2Phy OVS/DPDK VSPerf TEST ***"
+    echo "*** Running 2000/9000 Bytes 2PMD PVP OVS/DPDK VSPerf TEST     ***"
     echo "*****************************************************************"
     echo ""
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
 source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
-python ./vsperf phy2phy_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &>$NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log &
+python ./vsperf pvp_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &>$NIC_LOG_FOLDER/vsperf_pvp_2pmd_jumbo.log &
 EOF
 
     sleep 2
@@ -877,14 +877,14 @@ EOF
         echo "########################################################"
 
         mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log | awk '{print $11}' )
-        if [ "${array[0]%%.*}" -gt 400000 ]
+        if [ "${array[0]%%.*}" -gt 100000 ]
         then
             echo "# 64   Byte OVS Kernel PVP test result: ${array[0]} #"
         else
             echo "# 64 Bytes OVS Kernel PVP failed to reach required 400 Kpps got ${array[0]} #"
         fi
 
-        if [ "${array[1]%%.*}" -gt 300000 ]
+        if [ "${array[1]%%.*}" -gt 200000 ]
         then
             echo "# 1500 Byte OVS Kernel PVP test result: ${array[1]} #"
         else
@@ -894,7 +894,7 @@ EOF
         echo "########################################################"
         echo ""
 
-        if [ "${array[0]%%.*}" -lt 400000 ] || [ "${array[1]%%.*}" -lt 300000 ]
+        if [ "${array[0]%%.*}" -lt 100000 ] || [ "${array[1]%%.*}" -lt 200000 ]
         then
             fail "64/1500 OVS Kernel PVP" "Failed to achieve required pps on tests"
         fi
