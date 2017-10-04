@@ -692,8 +692,8 @@ git_clone_vsperf() {
     fi
     cd vswitchperf
     git checkout -f 9d2900035923bf307477c5b4b8dc423ba1b2086f &>>$NIC_LOG_FOLDER/vsperf_clone.log # Euphrates release
-    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/75/44275/1 # single numa fix
-    git pull https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/47/44247/4 # T-Rex multistream
+    git fetch https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/75/44275/1 && git cherry-pick FETCH_HEAD # single numa fix
+    git fetch https://gerrit.opnfv.org/gerrit/vswitchperf refs/changes/47/44247/4 && git cherry-pick FETCH_HEAD # T-Rex multistream
 
 
 }
