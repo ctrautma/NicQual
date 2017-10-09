@@ -67,7 +67,7 @@ OS_checks() {
     time_stamp=$(date +%Y-%m-%d-%T)
     NIC_LOG_FOLDER="/root/RHEL_NIC_QUAL_LOGS/$time_stamp"
     mkdir $NIC_LOG_FOLDER || fail "log folder creation" "Cannot create time stamp folder for logs in root home folder"
-    echo "NIC_LOG_FOLDER=$NIC_LOG_FOLDER" > /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+    echo "NIC_LOG_FOLDER=$NIC_LOG_FOLDER" > /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
 
 }
 
@@ -881,14 +881,14 @@ EOF
         then
             echo "# 64   Byte OVS Kernel PVP test result: ${array[0]} #"
         else
-            echo "# 64 Bytes OVS Kernel PVP failed to reach required 400 Kpps got ${array[0]} #"
+            echo "# 64 Bytes OVS Kernel PVP failed to reach required 100 Kpps got ${array[0]} #"
         fi
 
         if [ "${array[1]%%.*}" -gt 200000 ]
         then
             echo "# 1500 Byte OVS Kernel PVP test result: ${array[1]} #"
         else
-            echo "# 1500 Bytes OVS Kernel PVP failed to reach required 300 Kpps got ${array[1]} #"
+            echo "# 1500 Bytes OVS Kernel PVP failed to reach required 200 Kpps got ${array[1]} #"
         fi
 
         echo "########################################################"
