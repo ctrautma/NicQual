@@ -711,7 +711,7 @@ run_ovs_dpdk_tests() {
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+source /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
 python ./vsperf pvp_tput &>$NIC_LOG_FOLDER/vsperf_pvp_2pmd.log &
 EOF
 
@@ -761,7 +761,7 @@ EOF
 
 #scl enable python33 - << \EOF
 #source /root/vsperfenv/bin/activate
-#source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+#source /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
 #python ./vsperf pvp_tput --conf-file=/root/vswitchperf/twoqueue.conf &>$NIC_LOG_FOLDER/vsperf_pvp_4pmd-2q.log &
 #EOF
 #
@@ -811,7 +811,7 @@ EOF
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+source /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
 python ./vsperf phy2phy_tput --test-params="TRAFFICGEN_PKT_SIZES=2000,9000; VSWITCH_JUMBO_FRAMES_ENABLED=True" &>$NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log &
 EOF
 
@@ -864,7 +864,7 @@ run_ovs_kernel_tests() {
 
 scl enable python33 - << \EOF
 source /root/vsperfenv/bin/activate
-source /root/RHEL_NIC_QUAL_LOGS/current_folder.txt
+source /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
 python ./vsperf pvp_tput --vswitch=OvsVanilla --vnf=QemuVirtioNet --test-params="TRAFFICGEN_LOSSRATE=0.02" &>$NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log &
 EOF
 
