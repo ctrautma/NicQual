@@ -287,11 +287,11 @@ Once all Performance tests have passed next prepare to run the functional test q
 a) Prepare two machines with the tested RHEL disto installed
      The topology for physical connection can be found in rh_nic_cert.sh
 
-  b) copy the generated rh_nic_cert.tar to two machines and decompress the package
+  b) copy the generated rh_nic_cert.tar to two machines and decompress the package with "tar -xvf rh_nic_cert.tar"
 
-  c) go to the directory rh_nic_cert
+  c) go to the directory rh_nic_cert on both systems
 
-  d) customize the configuration in rh_nic_cert.sh by your test environment
+  d) customize the configuration in rh_nic_cert.sh by your test environment on both systems
      The detail for each configuration can be found in rh_nic_cert.sh
 
      i) Run part of test
@@ -306,7 +306,7 @@ a) Prepare two machines with the tested RHEL disto installed
         If other switch is used, one option is that you can skip the bonding test by listing $BONDING_TEST in $QE_SKIP_TEST in rh_nic_cert.sh, the other option is to extend the switch script
         lib/lib_swcfg.sh is the implementation of all functions used by the test to control switch.
 
-  e) run rh_nic_cert.sh
+  e) run rh_nic_cert.sh on both systems at the same time as close as possible
 
 COMING SOON....
 

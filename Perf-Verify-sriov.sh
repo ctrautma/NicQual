@@ -29,6 +29,19 @@
 
 echo "*** SR-IOV MUST be enabled already for this test to work!!!! ***"
 
+append_log() {
+
+if test -f root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
+then
+    source /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
+else
+    time_stamp=$(date +%Y-%m-%d-%T)
+    NIC_LOG_FOLDER="/root/RHEL_NIC_QUAL_LOGS/$time_stamp"
+    mkdir $NIC_LOG_FOLDER || fail "log folder creation" "Cannot create time stamp folder for logs in root home folder"
+    echo "NIC_LOG_FOLDER=$NIC_LOG_FOLDER" > /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
+fi
+
+}
 generate_sriov_conf() {
 
     NIC1_VF_PCI_ADDR=`ethtool -i $NIC1_VF | awk /bus-info/ | awk {'print $2'}`
@@ -166,6 +179,7 @@ sriov_check() {
 }
 
 OS_checks
+append_log
 hugepage_checks
 sriov_check
 conf_checks

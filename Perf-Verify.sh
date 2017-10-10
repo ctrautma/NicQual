@@ -58,6 +58,9 @@ OS_checks() {
         rpm -ivh lrzip-0.616-5.el7.x86_64.rpm || fail "lrzip install" "Failed to install lrzip"
     fi
 
+}
+
+log_folder_check() {
     # create log folder
     echo "*** Creating log folder ***"
     if ! [ -d /root/RHEL_NIC_QUAL_LOGS ]
@@ -961,6 +964,7 @@ vsperf_make() {
 main() {
 # run all checks
 OS_checks
+log_folder_check
 hugepage_checks
 conf_checks
 config_file_checks
