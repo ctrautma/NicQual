@@ -87,7 +87,7 @@ Or example of configuration file can be found at location below, but it must be 
 
     cp trex-core/scripts/cfg/simple_cfg /etc/trex_cfg.yaml
 
-After compilation and configuration trex server must be active in stateless mode. It is neccesary for proper connection
+After compilation and configuration trex server must be active in stateless mode. It is necessary for proper connection
 between Trex server and VSPERF.
 
     cd trex-core/scripts/
@@ -307,6 +307,10 @@ a) Prepare two machines with the tested RHEL disto installed
         lib/lib_swcfg.sh is the implementation of all functions used by the test to control switch.
 
   e) run rh_nic_cert.sh on both systems at the same time as close as possible
+
+
+  Once all tests have completed please execute the collections.sh script to collect all logs and provide the resulting
+  zip file to the qualification team.
 
 COMING SOON....
 

@@ -961,6 +961,41 @@ vsperf_make() {
     fi
 }
 
+print_results() {
+
+mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_2pmd.log | awk '{print $11}' )
+cat <<EOT >>$NIC_LOG_FOLDER/vsperf_results.txt
+########################################################
+# 64   Byte 2PMD OVS/DPDK PVP test result: ${array[0]} #
+# 1500 Byte 2PMD OVS/DPDK PVP test result: ${array[1]} #
+
+EOT
+
+
+mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_phy2phy_2pmd_jumbo.log | awk '{print $11}' )
+cat <<EOT >>$NIC_LOG_FOLDER/vsperf_results.txt
+# 2000 Byte 2PMD OVS/DPDK Phy2Phy test result: ${array[0]} #
+# 9000 Byte 2PMD OVS/DPDK Phy2Phy test result: ${array[1]} #
+EOT
+
+mapfile -t array < <( grep "Key: throughput_rx_fps, Value:" $NIC_LOG_FOLDER/vsperf_pvp_ovs_kernel.log | awk '{print $11}' )
+cat <<EOT >>$NIC_LOG_FOLDER/vsperf_results.txt
+# 64   Byte OVS Kernel PVP test result: ${array[0]} #
+# 1500 Byte OVS Kernel PVP test result: ${array[0]} #
+#####################################################
+EOT
+
+cat $NIC_LOG_FOLDER//vsperf_results.txt
+
+}
+
+copy_config_files_to_log_folder() {
+
+cp /root/vswitchperf/conf/* $NIC_LOG_FOLDER
+cp /root/NicQual/Perf-Verify.conf $NIC_LOG_FOLDER
+
+}
+
 main() {
 # run all checks
 OS_checks
@@ -982,6 +1017,7 @@ download_conf_files
 generate_2queue_conf
 run_ovs_dpdk_tests
 run_ovs_kernel_tests
+print_results
 }
 
 if [ "${1}" != "--source-only" ]
