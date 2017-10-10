@@ -1018,6 +1018,7 @@ generate_2queue_conf
 run_ovs_dpdk_tests
 run_ovs_kernel_tests
 print_results
+copy_config_files_to_log_folder
 }
 
 if [ "${1}" != "--source-only" ]
