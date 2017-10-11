@@ -26,12 +26,13 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # create time date stamp for archive and get hostname
-time_stamp=$(date +%Y-%m-%d-%T)
-myhost=`echo $hostname`
+timestamp=$(date +%Y-%m-%d-%T)
+myhost=`hostname`
+filename=${myhost}_${timestamp}
 
 
 # install sos if needed
-if ! [ `command -v lrzip ` ]
+if ! [ `command -v sosreport` ]
 then
     yum install -y sos || exit 1 "!!!Could not install sos!!!"
 fi
@@ -39,18 +40,18 @@ fi
 # run sos and add it to archive
 sosreport --batch &> soscollect.txt
 sosreport_log=`cat soscollect.txt | grep "tar.xz"`
-tar czf $myhost_$time_stamp.tar.gz $sosreport_log
+tar -cf $filename.tar $sosreport_log --force-local
 
-if test -f root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
+if test -f /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
 then
     source /root/RHEL_NIC_QUAL_LOGS/vsperf_logs_folder.txt
-    tar czf $myhost_$time_stamp.tar.gz $NIC_LOG_FOLDER
+    tar -rf $filename.tar $NIC_LOG_FOLDER/* --force-local
 fi
 
 if test -f /root/RHEL_NIC_QUAL_LOGS/kernel_functional_logs.txt
 then
     source /root/RHEL_NIC_QUAL_LOGS/kernel_functional_logs.txt
-    tar czf $myhost_$time_stamp.tar.gz $NIC_LOG_FOLDER_KERNEL
+    tar -rf $filename.tar $NIC_LOG_FOLDER_KERNEL/* --force-local
 fi
 
-echo "Please provide file $myhost_$time_stamp.tar.gz to Redhat Certification Team"
+echo "Please provide file $filename.tar to Redhat Certification Team"
